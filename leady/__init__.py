@@ -26,28 +26,6 @@ class LeadyTrackerError(Exception):
 class LeadyTracker(object):
 
     def __init__(self, track_key, identifier):
-        """
-
-        Example::
-
-            from leady import LeadyTracker
-            leady = LeadyTracker('asdfg', 'imper.cz')
-
-            # identify your user by e-mail
-            leady.identify('user@example.com', user_agent='Custom Agent/2.0', ip_address='1.2.3.4', url='/about/')
-
-            # you can push identify event immediately
-            leady.push()
-
-            # track event with numeric value
-            leady.track('buy', 'catalog', 10000)
-
-            # track event
-            leady.track('download', 'report')
-
-        :param track_key: your tracking key
-        :param identifier: domain or app identifier
-        """
         self._identifier = identifier
         self._track_key = track_key
         self._params = dict(k=track_key)
@@ -87,25 +65,6 @@ class LeadyTracker(object):
 
 
 class DjangoLeadyTracker(LeadyTracker):
-    """
-    Example::
-
-        def some_view(request):
-            leady = DjangoLeadyTracker('asdfg', request)
-            leady.identify('user@example.com')
-
-            leady.track('buy', 'catalog', 10000)
-            leady.track('download', 'report')
-
-            response = render(request, 'some_template.html', {'leady_code': leady.js_code(), 'foo' : 'bar', })
-
-            # If you want to track events from backend, you need to set leady cookie
-            leady.set_cookie(response)
-
-            return response
-
-    """
-
     _cookie_name = 'django_leady_tracker'
 
     def __init__(self, track_key, request):
