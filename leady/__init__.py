@@ -1,13 +1,16 @@
 from __future__ import print_function, unicode_literals
 
 try:
-    from urllib.parse import urlencode
+    from urllib.parse import urlencode, quote
     from http.client import HTTPSConnection, HTTPException
+    PY2 = False
 except ImportError:
-    from urllib import urlencode
+    from urllib import urlencode, quote
     from httplib import HTTPSConnection, HTTPException
+    PY2 = True
 
 import logging
+import re
 import uuid
 
 
@@ -24,6 +27,24 @@ class LeadyTracker(object):
 
     def __init__(self, track_key, identifier):
         """
+
+        Example::
+
+            from leady import LeadyTracker
+            leady = LeadyTracker('asdfg', 'imper.cz')
+
+            # identify your user by e-mail
+            leady.identify('user@example.com', user_agent='Custom Agent/2.0', ip_address='1.2.3.4', url='/about/')
+
+            # you can push identify event immediately
+            leady.push()
+
+            # track event with numeric value
+            leady.track('buy', 'catalog', 10000)
+
+            # track event
+            leady.track('download', 'report')
+
         :param track_key: your tracking key
         :param identifier: domain or app identifier
         """
@@ -36,6 +57,11 @@ class LeadyTracker(object):
 
     def identify(self, email, user_agent='', ip_address='', url=''):
         self._email = email
+        if url:
+            if PY2:
+                url = unicode(bytes(url), 'utf-8')
+            url = quote(url.encode('utf-8'), safe=b"/:@&+$,-_.!~*'()?=#")
+            url = re.sub(r'#.+$', '', url)
         self._params.update(dict(b=user_agent, p=ip_address, l=url))
 
     def track(self, event_name, event_category, event_value=None, push=True):
@@ -66,12 +92,16 @@ class DjangoLeadyTracker(LeadyTracker):
 
         def some_view(request):
             leady = DjangoLeadyTracker('asdfg', request)
-            leady.identify()
+            leady.identify('user@example.com')
 
-            leady.track()
-            leady.track()
+            leady.track('buy', 'catalog', 10000)
+            leady.track('download', 'report')
 
             response = render(request, 'some_template.html', {'leady_code': leady.js_code(), 'foo' : 'bar', })
+
+            # If you want to track events from backend, you need to set leady cookie
+            leady.set_cookie(response)
+
             return response
 
     """
@@ -82,10 +112,12 @@ class DjangoLeadyTracker(LeadyTracker):
         super(DjangoLeadyTracker, self).__init__(track_key, request.META['HTTP_HOST'])
         self.request = request
         self._cookie_value = request.COOKIES.get(self._cookie_name, str(uuid.uuid4()))
-        self._params['b'] = request.META['HTTP_USER_AGENT']
-        self._params['l'] = request.get_full_path()
-        self._params['p'] = self.client_ip
-        self._params['s'] = self._cookie_value
+        self._params.update(dict(
+            b=request.META['HTTP_USER_AGENT'],
+            l=request.get_full_path(),
+            p=self.client_ip,
+            s=self._cookie_value
+        ))
 
     def identify(self, email, user_agent='', ip_address='', url=''):
         # only set email, do not update params which are obtained from request
@@ -94,7 +126,7 @@ class DjangoLeadyTracker(LeadyTracker):
     def track(self, event_name, event_category, event_value=None, push=False):
         super(DjangoLeadyTracker, self).track(event_name, event_category, event_value, push)
 
-    def set_leady_cookie(self, response):
+    def set_cookie(self, response):
         response.set_cookie(self._cookie_name, self._cookie_value, 60*60*24*365*2)
 
     @property
