@@ -1,71 +1,80 @@
 # coding: utf-8
 
+import pickle
 import pytest
-import re
 import uuid
-from unittest import TestCase
-
-from django.test import RequestFactory
-from django.conf import settings
 
 try:
-    from urllib.parse import urlencode, quote, quote_plus
+    from urllib.parse import urlencode
     from http.client import HTTPSConnection, HTTPException
 except ImportError:
-    from urllib import urlencode, quote, quote_plus
+    from urllib import urlencode
     from httplib import HTTPSConnection, HTTPException
 
 
-from leady import LeadyTracker, DjangoLeadyTracker, LeadyTrackerError
-
-settings.configure()
+from leady import LeadyTracker, LeadyTrackerError
 
 HTTP_HOST = 'imper.cz'
 HTTP_X_FORWARDED_FOR = '1.2.3.4'
 HTTP_USER_AGENT = 'Browser/2.0'
-TEST_LOCATION = '/dashboard/?hallo=there are lions#remove-thi-part-please&asd=2'
-EXPECTED_LOCATION = quote(re.sub(r'#.+$', '', TEST_LOCATION), safe="/:@&+$,-_.!~*'()?=")
+TEST_KEY = 'a' * 16
+TEST_LOCATION = 'https://example.com/?hallo=there are lions&12345#remove-thi-part-please&asd=2'
+TEST_LOCATION_2 = 'https://example.com/?hallo=žluťoučký-kůň#remove-thi-part-please&asd=2'
 
 
-class TrackerTests(TestCase):
-
-    def setUp(self):
-        super(TrackerTests, self).setUp()
-        self.l = LeadyTracker('test', 'ěščřřžů')
-
-    def test_push_raise(self):
-        assert self.l._events == []
-        with pytest.raises(LeadyTrackerError) as exc_info:
-            self.l.push()
-        assert 'identify()' in str(exc_info.value)
-
-    def test_url_stripped(self):
-        self.l.identify('a@a.aa', url=TEST_LOCATION)
-        assert self.l._params['l'] == EXPECTED_LOCATION
+def test_invalid_track_key():
+    with pytest.raises(AssertionError) as exc_info:
+        LeadyTracker('asd')
+    assert 'Invalid track_key parameter' in str(exc_info.value)
 
 
-class DjangoTrackerTests(TestCase):
+def test_locations_strip_encode():
+    assert LeadyTracker.loc(TEST_LOCATION) == 'https://example.com/?hallo=there+are+lions&12345'
+    assert LeadyTracker.loc(TEST_LOCATION_2) == 'https://example.com/?hallo=%C5%BElu%C5%A5ou%C4%8Dk%C3%BD-k%C5%AF%C5%88'
 
-    def setUp(self):
-        super(DjangoTrackerTests, self).setUp()
-        self.rf = RequestFactory(HTTP_HOST=HTTP_HOST, HTTP_X_FORWARDED_FOR=HTTP_X_FORWARDED_FOR,
-                                 HTTP_USER_AGENT=HTTP_USER_AGENT)
 
-    def test_get_meta_from_request(self):
-        r = self.rf.get(TEST_LOCATION)
-        l = DjangoLeadyTracker('a', r)
-        assert l._identifier == 'imper.cz'
-        assert l._params['p'] == HTTP_X_FORWARDED_FOR
-        assert l._params['l'] == EXPECTED_LOCATION
+def test_make_params():
+    s = uuid.uuid4()
+    t = LeadyTracker(TEST_KEY, session=s, base_location='https://example.com')
+    p = t.make_params()
+    assert ''.join(p.keys()) == t.SUPPORTED_PARAM_KEYS
+    assert p['s'] == str(s)
+    assert p['k'] == TEST_KEY
 
-    def test_session_id_generated(self):
-        r = self.rf.get(TEST_LOCATION)
-        l = DjangoLeadyTracker('a', r)
-        assert l._params['s'] == l._cookie_value
 
-    def test_session_from_request(self):
-        r = self.rf.get(TEST_LOCATION)
-        test_sid = uuid.uuid4()
-        r.COOKIES[DjangoLeadyTracker._cookie_name] = test_sid
-        l = DjangoLeadyTracker('a', r)
-        assert l._params['s'] == test_sid
+def test_make_url():
+    s = uuid.uuid4()
+    t = LeadyTracker(TEST_KEY, session=s, base_location='https://example.com')
+    p = t.make_params()
+    url = t.make_url(p)
+    assert url.startswith('/L?k=aaaaaaaaaaaaaaaa&d=&s=%s&l=&r=&b=&u=&o=&e=&' % s)
+
+
+def test_session():
+    s = uuid.uuid4()
+    sstr = str(s)
+    t = LeadyTracker(TEST_KEY, session=s)
+    assert t.session == sstr
+
+    t = LeadyTracker(TEST_KEY, session=sstr)
+    assert t.session == sstr
+
+    with pytest.raises(LeadyTrackerError) as exc_info:
+        LeadyTracker(TEST_KEY, session='bad')
+    assert 'Invalid session parameter' in str(exc_info)
+
+
+def test_pickle():
+    t = LeadyTracker(TEST_KEY, base_location='http://a.aa')
+    s = t.session
+    pt = pickle.dumps(t)
+    del t
+    t = pickle.loads(pt)
+    assert s == t.session
+
+
+def test_bad_dir():
+    t = LeadyTracker(TEST_KEY)
+    with pytest.raises(AssertionError) as exc_info:
+        t.track(direction='AA')
+    assert 'Invalid direction parameter' in str(exc_info)

@@ -1,22 +1,19 @@
 from __future__ import print_function, unicode_literals
 
+import json
+import re
+import uuid
+from collections import OrderedDict
+from random import randint
+
 try:
-    from urllib.parse import urlencode, quote
+    from urllib.parse import urlencode, quote_plus
     from http.client import HTTPSConnection, HTTPException
     PY2 = False
 except ImportError:
-    from urllib import urlencode, quote
+    from urllib import urlencode, quote_plus
     from httplib import HTTPSConnection, HTTPException
     PY2 = True
-
-import logging
-import re
-import uuid
-
-
-log = logging.getLogger('leady')
-
-TRACK_URL = 't.leady.cz'
 
 
 class LeadyTrackerError(Exception):
@@ -25,82 +22,69 @@ class LeadyTrackerError(Exception):
 
 class LeadyTracker(object):
 
-    def __init__(self, track_key, identifier):
-        self._identifier = identifier
-        self._track_key = track_key
-        self._params = dict(k=track_key)
-        self._email = None
-        self._events = []
-        self._conn = HTTPSConnection(TRACK_URL)
+    TRACK_URL = 't.leady.cz'
+    SUPPORTED_PARAM_KEYS = 'kdslrbuoe'
+    DIR_ALLOWED = 'ioe'
+    DIR_I, DIR_O, DIR_E = DIR_ALLOWED
 
-    def identify(self, email, user_agent='', ip_address='', url=''):
-        self._email = email
-        if url:
-            if PY2:
-                url = unicode(bytes(url), 'utf-8')
-            url = quote(url.encode('utf-8'), safe=b"/:@&+$,-_.!~*'()?=#")
-            url = re.sub(r'#.+$', '', url)
-        self._params.update(dict(b=user_agent, p=ip_address, l=url))
+    def __init__(self, track_key, auto_referrer=True, session=uuid.uuid4(), base_location='', user_agent=''):
+        track_key = str(track_key)
+        assert len(track_key) == 16, "Invalid track_key parameter"
+        assert len(user_agent) < 256, "Too long user_agent parameter"
+        assert len(base_location) < 156, "Too long base_url parameter"
 
-    def track(self, event_name, event_category, event_value=None, push=True):
-        event = [event_name, event_category]
-        if event_value:
-            event.append(event_value)
-        self._events.append(event)
-        if push:
-            self.push()
+        if session and not isinstance(session, uuid.UUID):
+            try:
+                session = uuid.UUID(session)
+            except ValueError:
+                raise LeadyTrackerError('Invalid session parameter, expected UUID str, got %s: %s' % (type(session), session))
 
-    def push(self):
-        if not self._email:
-            raise LeadyTrackerError('You must call identify() before tracking events')
+        self.session = str(session)
+        self.track_key = track_key
+        self.auto_referrer = auto_referrer
+        self.base_location = base_location
+        self.headers = {'User-agent': user_agent} if user_agent else {}
+        self.last_location = ''
+        self.events_to_push = []
 
-        self._events.append(['identify', self._email])
-        self._conn.request('GET', '/L?%s' % urlencode(dict(e=self._events).update(self._params)))
-        resp = self._conn.getresponse()
-        if resp.status == 204:
-            # clear events
-            self._events = []
-        else:
-            log.warning('Response status code: %s' % resp.status)
+    def make_params(self):
+        ret = OrderedDict(((k, '') for k in self.SUPPORTED_PARAM_KEYS))
+        ret.update(k=self.track_key, s=self.session)
+        return ret
 
+    @staticmethod
+    def make_url(params):
+        return '/L?%(params)s&%(random)d' % dict(
+            params='&'.join(['='.join([k, quote_plus(str(v))]) for k, v in params.items() if v is not None]),
+            random=randint(0, 999999),
+        )
 
-class DjangoLeadyTracker(LeadyTracker):
-    _cookie_name = 'django_leady_tracker'
+    @staticmethod
+    def loc(location):
+        if not location:
+            return ''
+        if PY2:
+            location = unicode(bytes(location), 'utf-8')
+        location = location.encode('utf-8')
+        return quote_plus(re.sub(br'#.+$', b'', location), safe=b'/:=?&')
 
-    def __init__(self, track_key, request):
-        super(DjangoLeadyTracker, self).__init__(track_key, request.META['HTTP_HOST'])
-        self.request = request
-        self._cookie_value = request.COOKIES.get(self._cookie_name, str(uuid.uuid4()))
-        self._params.update(dict(
-            b=request.META['HTTP_USER_AGENT'],
-            l=request.get_full_path(),
-            p=self.client_ip,
-            s=self._cookie_value
-        ))
+    def identify(self, email):
+        self.track(direction=self.DIR_E, event=['identify', email])
 
-    def identify(self, email, user_agent='', ip_address='', url=''):
-        # only set email, do not update params which are obtained from request
-        self._email = email
+    def track(self, direction=DIR_I, location='', referrer='', event=None):
+        assert direction in self.DIR_ALLOWED, \
+            "Invalid direction parameter. It must be one of %s" % ', '.join(self.DIR_ALLOWED)
 
-    def track(self, event_name, event_category, event_value=None, push=False):
-        super(DjangoLeadyTracker, self).track(event_name, event_category, event_value, push)
+        referrer = self.loc(referrer) or self.last_location if self.auto_referrer else self.loc(referrer)
+        self.last_location = location = self.loc(location or self.base_location)
+        params = self.make_params()
+        params.update(d=direction, l=location, r=referrer)
 
-    def set_cookie(self, response):
-        response.set_cookie(self._cookie_name, self._cookie_value, 60*60*24*365*2)
+        if event:
+            params.update(e=json.dumps([event], ensure_ascii=False))
 
-    @property
-    def js_code(self):
-        from django.utils.safestring import mark_safe
-        evts = ['_leady.push(%s);' % ['identify', self._email]]
-        for one in self._events:
-            one.insert(0, 'event')
-            evts.append('_leady.push(%s);' % one)
-        return mark_safe("""<script type="text/javascript">
-var _leady = _leady || [];
-%s
-</script>""") % '\n'.join(evts)
+        url = self.make_url(params)
 
-    @property
-    def client_ip(self):
-        x_forwarded_for = self.request.META.get('HTTP_X_FORWARDED_FOR')
-        return x_forwarded_for.split(',')[0] if x_forwarded_for else self.request.META.get('REMOTE_ADDR')
+        conn = HTTPSConnection(self.TRACK_URL)
+        conn.request('GET', url, headers=self.headers)
+        conn.getresponse()

@@ -4,7 +4,7 @@ from setuptools.command.test import test
 
 setup_requires = ['setuptools']
 install_requires = []
-tests_require = ['pytest', 'django']
+tests_require = ['pytest']
 
 
 class PyTest(test):
