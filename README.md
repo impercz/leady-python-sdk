@@ -83,7 +83,7 @@ def second_view(request, *args):
 
 ## Even more advanced usage
 
-You can also pickle and reuse tracker instance.
+You can also use pickle to reuse a tracker instance.
 
 ```python
 import pickle
