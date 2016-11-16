@@ -48,9 +48,9 @@ class LeadyTracker(object):
         self.events_to_push = []
 
     def make_params(self):
-        ret = OrderedDict(((k, '') for k in self.SUPPORTED_PARAM_KEYS))
-        ret.update(k=self.track_key, s=self.session)
-        return ret
+        params = OrderedDict(((k, '') for k in self.SUPPORTED_PARAM_KEYS))
+        params.update(k=self.track_key, s=self.session)
+        return params
 
     @staticmethod
     def make_url(params):
@@ -81,6 +81,7 @@ class LeadyTracker(object):
         params.update(d=direction, l=location, r=referrer)
 
         if event:
+            assert isinstance(event, list) and 0 < len(event) < 4, "Invalid event parameter"
             params.update(e=json.dumps([event], ensure_ascii=False))
 
         url = self.make_url(params)

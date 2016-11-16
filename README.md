@@ -91,8 +91,12 @@ from leady import LeadyTracker
 
 l = LeadyTracker('track_key')
 
+# ... do some tracking ...
+
+# save it where you want (redis, memcache, db)...
 pl = pickle.dumps(l)
 del l
 
+# and load it back again
 l = pickle.loads(pl)
 ```

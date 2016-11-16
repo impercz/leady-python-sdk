@@ -4,14 +4,6 @@ import pickle
 import pytest
 import uuid
 
-try:
-    from urllib.parse import urlencode
-    from http.client import HTTPSConnection, HTTPException
-except ImportError:
-    from urllib import urlencode
-    from httplib import HTTPSConnection, HTTPException
-
-
 from leady import LeadyTracker, LeadyTrackerError
 
 HTTP_HOST = 'imper.cz'
@@ -46,8 +38,9 @@ def test_make_url():
     s = uuid.uuid4()
     t = LeadyTracker(TEST_KEY, session=s, base_location='https://example.com')
     p = t.make_params()
+    p.update(d=t.DIR_I, l='here')
     url = t.make_url(p)
-    assert url.startswith('/L?k=aaaaaaaaaaaaaaaa&d=&s=%s&l=&r=&b=&u=&o=&e=&' % s)
+    assert url.startswith('/L?k=aaaaaaaaaaaaaaaa&d=i&s=%s&l=here&r=&b=&u=&o=&e=&' % s)
 
 
 def test_session():
@@ -78,3 +71,14 @@ def test_bad_dir():
     with pytest.raises(AssertionError) as exc_info:
         t.track(direction='AA')
     assert 'Invalid direction parameter' in str(exc_info)
+
+
+def test_bad_event_param():
+    t = LeadyTracker(TEST_KEY)
+    with pytest.raises(AssertionError) as exc_info:
+        t.track(event='string')
+    assert 'Invalid event parameter' in str(exc_info)
+
+    with pytest.raises(AssertionError) as exc_info:
+        t.track(event=['a', 'b', 100, 200])
+    assert 'Invalid event parameter' in str(exc_info)
