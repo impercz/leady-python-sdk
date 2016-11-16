@@ -2,6 +2,10 @@
 
 [Leady](https://leady.cz) SDK for Python
 
+[![PyPI version](https://badge.fury.io/py/leady.svg)](https://badge.fury.io/py/leady)
+[![Build Status](https://travis-ci.org/impercz/leady-python-sdk.svg?branch=master)](https://travis-ci.org/impercz/leady-python-sdk)
+
+
 With this package you can track events to [Leady](https://leady.cz) 
 from your backend application. 
 
