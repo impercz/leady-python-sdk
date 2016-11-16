@@ -2,6 +2,8 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.command.test import test
 
+V = '0.0.2'
+
 setup_requires = ['setuptools']
 install_requires = []
 tests_require = ['pytest']
@@ -22,7 +24,7 @@ class PyTest(test):
 
 setup(
     name='leady',
-    version='0.0.1',
+    version=V,
     author='Vitek Pliska',
     author_email='vitek@creatiweb.cz',
     url='https://github.com/impercz/leady-python-sdk',
