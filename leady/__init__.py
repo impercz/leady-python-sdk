@@ -20,6 +20,33 @@ class LeadyTrackerError(Exception):
     pass
 
 
+class InvalidInputError(LeadyTrackerError):
+
+    def __init__(self, message):
+        super(InvalidInputError, self).__init__(message)
+
+        if isinstance(message, list):
+            self.error_list = []
+            for message in message:
+                # Normalize plain strings to instances of ValidationError.
+                if not isinstance(message, InvalidInputError):
+                    message = InvalidInputError(message)
+                self.error_list.extend(message.error_list)
+        else:
+            self.message = message
+            self.error_list = [self]
+
+    def __iter__(self):
+        for error in self.error_list:
+            yield error.message
+
+    def __str__(self):
+        return repr(list(self))
+
+    def __repr__(self):
+        return 'InvalidInputError(%s)' % self
+
+
 class LeadyTracker(object):
 
     TRACK_URL = 't.leady.cz'
@@ -28,16 +55,32 @@ class LeadyTracker(object):
     DIR_I, DIR_O, DIR_E = DIR_ALLOWED
 
     def __init__(self, track_key, auto_referrer=True, session=uuid.uuid4(), base_location='', user_agent=''):
-        track_key = str(track_key)
-        assert len(track_key) == 16, "Invalid track_key parameter"
-        assert len(user_agent) < 256, "Too long user_agent parameter"
-        assert len(base_location) < 156, "Too long base_url parameter"
+        err = []
+
+        try:
+            track_key = str(track_key)
+        except UnicodeEncodeError:
+            err.append("Invalid track_key parameter")
+
+        if not len(track_key) == 16:
+            err.append("Invalid length of track_key parameter")
+
+        if len(user_agent) > 255:
+            err.append("Too long user_agent parameter")
+
+        if len(base_location) > 155:
+            err.append("Too long base_location parameter")
 
         if session and not isinstance(session, uuid.UUID):
             try:
                 session = uuid.UUID(session)
             except ValueError:
-                raise LeadyTrackerError('Invalid session parameter, expected UUID str, got %s: %s' % (type(session), session))
+                err.append("Invalid session parameter, expected UUID str, got %(type)s: %(value)s" % dict(
+                    type=type(session),
+                    value=session))
+
+        if err:
+            raise InvalidInputError(err)
 
         self.session = str(session)
         self.track_key = track_key
@@ -72,16 +115,21 @@ class LeadyTracker(object):
         self.track(direction=self.DIR_E, event=['identify', email])
 
     def track(self, direction=DIR_I, location='', referrer='', event=None):
-        assert direction in self.DIR_ALLOWED, \
-            "Invalid direction parameter. It must be one of %s" % ', '.join(self.DIR_ALLOWED)
+        if direction not in self.DIR_ALLOWED:
+            raise InvalidInputError(
+                "Invalid direction parameter. It must be one of '%s'" % "', '".join(self.DIR_ALLOWED)
+            )
 
         referrer = self.loc(referrer) or self.last_location if self.auto_referrer else self.loc(referrer)
         self.last_location = location = self.loc(location or self.base_location)
         params = self.make_params()
         params.update(d=direction, l=location, r=referrer)
 
-        if event:
-            assert isinstance(event, list) and 0 < len(event) < 4, "Invalid event parameter"
+        if event is not None:
+            if not isinstance(event, list) or not 0 < len(event) < 4:
+                raise InvalidInputError("Invalid event parameter, use event=[name, category, value]")
+            if len(event) == 3 and not isinstance(event[2], int):
+                raise InvalidInputError("Invalid event value parameter")
             params.update(e=json.dumps([event], ensure_ascii=False))
 
         url = self.make_url(params)

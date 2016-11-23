@@ -4,7 +4,7 @@ import pickle
 import pytest
 import uuid
 
-from leady import LeadyTracker, LeadyTrackerError
+from leady import LeadyTracker, LeadyTrackerError, InvalidInputError
 
 HTTP_HOST = 'imper.cz'
 HTTP_X_FORWARDED_FOR = '1.2.3.4'
@@ -15,9 +15,18 @@ TEST_LOCATION_2 = 'https://example.com/?hallo=žluťoučký-kůň#remove-thi-par
 
 
 def test_invalid_track_key():
-    with pytest.raises(AssertionError) as exc_info:
+    with pytest.raises(InvalidInputError) as exc_info:
         LeadyTracker('asd')
-    assert 'Invalid track_key parameter' in str(exc_info.value)
+    assert 'Invalid length of track_key parameter' in str(exc_info.value)
+
+
+def test_multiple_invalid_params():
+    with pytest.raises(InvalidInputError) as exc_info:
+        LeadyTracker('asd', session='123', base_location='a'*500)
+    assert len(list(exc_info.value)) == 3
+    assert 'Invalid length of track_key parameter' in str(list(exc_info.value)[0])
+    assert 'Too long base_location parameter' in str(list(exc_info.value)[1])
+    assert 'Invalid session parameter, expected UUID str, got <class \'str\'>: 123' in str(list(exc_info.value)[2])
 
 
 def test_locations_strip_encode():
@@ -68,17 +77,31 @@ def test_pickle():
 
 def test_bad_dir():
     t = LeadyTracker(TEST_KEY)
-    with pytest.raises(AssertionError) as exc_info:
+    with pytest.raises(InvalidInputError) as exc_info:
         t.track(direction='AA')
-    assert 'Invalid direction parameter' in str(exc_info)
+    assert 'Invalid direction parameter' in str(exc_info.value)
 
 
 def test_bad_event_param():
     t = LeadyTracker(TEST_KEY)
-    with pytest.raises(AssertionError) as exc_info:
-        t.track(event='string')
-    assert 'Invalid event parameter' in str(exc_info)
+    msgs = [
+        'Invalid event parameter',
+        'Invalid event value parameter'
+    ]
+    bad_evts = (
+        ('string', 0),  # not list
+        (['a', 'b', 100, 200], 0),  # len > 3
+        ([], 0),  # len < 1
 
-    with pytest.raises(AssertionError) as exc_info:
-        t.track(event=['a', 'b', 100, 200])
-    assert 'Invalid event parameter' in str(exc_info)
+        # wrong value types
+        (['a', 'b', 2.21], 1),
+        (['a', 'b', ''], 1),
+        (['a', 'b', None], 1),
+        (['a', 'b', []], 1),
+        (['a', 'b', {}], 1),
+    )
+
+    for e, m in bad_evts:
+        with pytest.raises(InvalidInputError) as exc_info:
+            t.track(event=e)
+        assert msgs[m] in str(exc_info.value)
