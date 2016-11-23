@@ -26,7 +26,7 @@ def test_multiple_invalid_params():
     assert len(list(exc_info.value)) == 3
     assert 'Invalid length of track_key parameter' in str(list(exc_info.value)[0])
     assert 'Too long base_location parameter' in str(list(exc_info.value)[1])
-    assert 'Invalid session parameter, expected UUID str, got <class \'str\'>: 123' in str(list(exc_info.value)[2])
+    assert 'Invalid session parameter, expected UUID str' in str(list(exc_info.value)[2])
 
 
 def test_locations_strip_encode():
