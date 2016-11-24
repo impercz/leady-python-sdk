@@ -30,25 +30,25 @@ def test_multiple_invalid_params():
 
 
 def test_locations_strip_encode():
-    assert LeadyTracker.loc(TEST_LOCATION) == 'https://example.com/?hallo=there+are+lions&12345'
-    assert LeadyTracker.loc(TEST_LOCATION_2) == 'https://example.com/?hallo=%C5%BElu%C5%A5ou%C4%8Dk%C3%BD-k%C5%AF%C5%88'
+    assert LeadyTracker._loc(TEST_LOCATION) == 'https://example.com/?hallo=there+are+lions&12345'
+    assert LeadyTracker._loc(TEST_LOCATION_2) == 'https://example.com/?hallo=%C5%BElu%C5%A5ou%C4%8Dk%C3%BD-k%C5%AF%C5%88'
 
 
 def test_make_params():
     s = uuid.uuid4()
     t = LeadyTracker(TEST_KEY, session=s, base_location='https://example.com')
-    p = t.make_params()
+    p = t._make_params()
     assert ''.join(p.keys()) == t.SUPPORTED_PARAM_KEYS
     assert p['s'] == str(s)
     assert p['k'] == TEST_KEY
 
 
-def test_make_url():
+def test_make_path():
     s = uuid.uuid4()
     t = LeadyTracker(TEST_KEY, session=s, base_location='https://example.com')
-    p = t.make_params()
+    p = t._make_params()
     p.update(d=t.DIR_I, l='here')
-    url = t.make_url(p)
+    url = t._make_path(p)
     assert url.startswith('/L?k=aaaaaaaaaaaaaaaa&d=i&s=%s&l=here&r=&b=&u=&o=&e=&' % s)
 
 

@@ -1,12 +1,12 @@
 # leady-python-sdk
 
-[Leady](https://leady.cz) SDK for Python
+[Leady](https://leady.com) SDK for Python
 
 [![PyPI version](https://badge.fury.io/py/leady.svg)](https://badge.fury.io/py/leady)
 [![Build Status](https://travis-ci.org/impercz/leady-python-sdk.svg?branch=master)](https://travis-ci.org/impercz/leady-python-sdk)
 
 
-With this package you can track events to [Leady](https://leady.cz) 
+With this package you can track events to [Leady](https://leady.com)
 from your backend application. 
 
 ## Installation
@@ -19,7 +19,7 @@ pip install leady
 
 ## Usage
 
-Initialize tracker with `track_key` obtained from [Leady](http://leady.cz).
+Initialize tracker with `track_key` obtained from [Leady](http://leady.com).
 
 Additional parameters you can use:
 
