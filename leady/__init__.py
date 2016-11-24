@@ -108,7 +108,7 @@ class LeadyTracker(object):
     @staticmethod
     def _make_path(params):
         return '/L?%(params)s&%(random)d' % dict(
-            params='&'.join('='.join([k, quote_plus(str(v))]) for k, v in params.items() if v is not None),
+            params=urlencode(params),
             random=randint(0, 999999),
         )
 

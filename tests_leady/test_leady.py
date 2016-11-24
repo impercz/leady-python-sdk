@@ -29,11 +29,13 @@ def test_multiple_invalid_params():
     assert 'Invalid session parameter, expected UUID str' in str(list(exc_info.value)[2])
 
 
+# noinspection PyProtectedMember
 def test_locations_strip_encode():
     assert LeadyTracker._loc(TEST_LOCATION) == 'https://example.com/?hallo=there+are+lions&12345'
     assert LeadyTracker._loc(TEST_LOCATION_2) == 'https://example.com/?hallo=%C5%BElu%C5%A5ou%C4%8Dk%C3%BD-k%C5%AF%C5%88'
 
 
+# noinspection PyProtectedMember
 def test_make_params():
     s = uuid.uuid4()
     t = LeadyTracker(TEST_KEY, session=s, base_location='https://example.com')
@@ -43,13 +45,14 @@ def test_make_params():
     assert p['k'] == TEST_KEY
 
 
+# noinspection PyProtectedMember
 def test_make_path():
     s = uuid.uuid4()
     t = LeadyTracker(TEST_KEY, session=s, base_location='https://example.com')
     p = t._make_params()
     p.update(d=t.DIR_I, l='here')
-    url = t._make_path(p)
-    assert url.startswith('/L?k=aaaaaaaaaaaaaaaa&d=i&s=%s&l=here&r=&b=&u=&o=&e=&' % s)
+    l = t._make_path(p)
+    assert l.startswith('/L?k=aaaaaaaaaaaaaaaa&d=i&s=%s&l=here&r=&b=&u=&o=&e=&' % s)
 
 
 def test_session():

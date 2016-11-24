@@ -19,7 +19,7 @@ pip install leady
 
 ## Usage
 
-Initialize tracker with `track_key` obtained from [Leady](http://leady.com).
+Initialize tracker with `track_key` obtained from [Leady](https://leady.com).
 
 Additional parameters you can use:
 
