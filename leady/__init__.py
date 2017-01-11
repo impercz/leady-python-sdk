@@ -53,7 +53,8 @@ class LeadyTracker(object):
     DIRS_ALLOWED = 'ioe'
     DIR_I, DIR_O, DIR_E = DIRS_ALLOWED
 
-    def __init__(self, track_key, auto_referrer=True, session=None, base_location='', user_agent='', http_timeout=1):
+    def __init__(self, track_key, auto_referrer=True, session=None, base_location='', user_agent='',
+                 http_timeout=1, raise_errors=False):
         err = []
 
         try:
@@ -94,6 +95,7 @@ class LeadyTracker(object):
         self.headers = {'User-Agent': user_agent} if user_agent else {}
         self.last_location = ''
         self.http_timeout = http_timeout
+        self.raise_errors = raise_errors
 
     def _make_params(self):
         params = OrderedDict(
@@ -168,9 +170,13 @@ class LeadyTracker(object):
 
         path = self._make_path(params)
 
-        conn = HTTPSConnection(self.TRACKING_HOST, timeout=self.http_timeout)
-        conn.request(
-            'GET',
-            path,
-            headers=self.headers,
-        )
+        try:
+            conn = HTTPSConnection(self.TRACKING_HOST, timeout=self.http_timeout)
+            conn.request(
+                'GET',
+                path,
+                headers=self.headers,
+            )
+        except Exception:
+            if self.raise_errors:
+                raise

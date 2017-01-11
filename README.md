@@ -28,12 +28,13 @@ Additional parameters you can use:
  * `base_location` - some parts of event tracking needs to provide location. 
    If you want to use it easier, zou can provide base location that will be used.
  * `user_agent` - similar as above.
- * `http_timeout` - Specify custom `timeout` for connection to [Leady](https://leady.com)
+ * `http_timeout` - specify custom `timeout` for connection to [Leady](https://leady.com)
+ * `raise_errors` - raise errors when connection to leady fails. Default is `False` (silent).
 
 ```python
 from leady import LeadyTracker
 l = LeadyTracker('track_key', auto_referrer=True, base_location='https://monitora.cz', 
-                 user_agent='Some-app/2.0', http_timeout=1)
+                 user_agent='Some-app/2.0', http_timeout=1, raise_errors=False)
 
 # Track indentify event
 

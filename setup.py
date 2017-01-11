@@ -2,13 +2,14 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.command.test import test
 
-V = '0.1.1'
+V = '0.1.2'
 
 setup_requires = ['setuptools']
 install_requires = []
 tests_require = ['pytest']
 
 
+# noinspection PyAttributeOutsideInit
 class PyTest(test):
     def finalize_options(self):
         test.finalize_options(self)
