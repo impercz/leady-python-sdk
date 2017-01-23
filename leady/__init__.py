@@ -161,6 +161,9 @@ class LeadyTracker(object):
             if len(event) == 3 and not isinstance(event[2], int):
                 raise InvalidInputError("Invalid event value parameter")
 
+            if not event[0] == 'identify':
+                event.insert(0, 'event')
+
             params.update(
                 e=json.dumps(
                     [event],
@@ -177,6 +180,7 @@ class LeadyTracker(object):
                 path,
                 headers=self.headers,
             )
+            print(conn.getresponse().read())
         except Exception:
             if self.raise_errors:
                 raise
