@@ -170,7 +170,6 @@ class LeadyTracker(object):
                     ensure_ascii=False,
                 ),
             )
-
         path = self._make_path(params)
 
         try:
@@ -180,7 +179,6 @@ class LeadyTracker(object):
                 path,
                 headers=self.headers,
             )
-            print(conn.getresponse().read())
         except Exception:
             if self.raise_errors:
                 raise
